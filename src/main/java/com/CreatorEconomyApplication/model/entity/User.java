@@ -1,6 +1,5 @@
 package com.CreatorEconomyApplication.model.entity;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import com.CreatorEconomyApplication.model.enums.UserStatus;
