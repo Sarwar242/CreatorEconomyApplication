@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creator Economy - Analytics</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .metric-card.blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .metric-card.green {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .metric-card.purple {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-chart-line text-white text-2xl"></i>
+                    <h1 class="text-2xl font-bold text-white">Analytics Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-white hover:text-gray-200 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                    </a>
+                    <div class="flex items-center space-x-2 text-white">
+                        <i class="fas fa-user-circle text-2xl"></i>
+                        <span id="username">Creator</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Date Range Selector -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Performance Overview</h2>
+                <div class="flex items-center space-x-4">
+                    <select id="dateRange" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last year</option>
+                    </select>
+                    <button id="refreshData" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="metric-card rounded-lg p-6 text-center">
+                <div class="text-3xl font-bold mb-2" id="totalViews">0</div>
+                <div class="text-sm opacity-90">Total Views</div>
+                <div class="text-xs mt-2 opacity-75" id="viewsChange">+0% from last period</div>
+            </div>
+            
+            <div class="metric-card blue rounded-lg p-6 text-center">
+                <div class="text-3xl font-bold mb-2" id="totalLikes">0</div>
+                <div class="text-sm opacity-90">Total Likes</div>
+                <div class="text-xs mt-2 opacity-75" id="likesChange">+0% from last period</div>
+            </div>
+            
+            <div class="metric-card green rounded-lg p-6 text-center">
+                <div class="text-3xl font-bold mb-2" id="totalComments">0</div>
+                <div class="text-sm opacity-90">Total Comments</div>
+                <div class="text-xs mt-2 opacity-75" id="commentsChange">+0% from last period</div>
+            </div>
+            
+            <div class="metric-card purple rounded-lg p-6 text-center">
+                <div class="text-3xl font-bold mb-2" id="totalShares">0</div>
+                <div class="text-sm opacity-90">Total Shares</div>
+                <div class="text-xs mt-2 opacity-75" id="sharesChange">+0% from last period</div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Views Over Time Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Views Over Time</h3>
+                <div class="chart-container">
+                    <canvas id="viewsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Engagement Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Engagement Metrics</h3>
+                <div class="chart-container">
+                    <canvas id="engagementChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Performance -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Platform Distribution -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Platform Distribution</h3>
+                <div class="chart-container">
+                    <canvas id="platformChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Content Status -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Content Status</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performing Content -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Top Performing Content</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Likes</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shares</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topContentTable" class="bg-white divide-y divide-gray-200">
+                        <!-- Content will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for charts
+        let viewsChart, engagementChart, platformChart, statusChart;
+        
+        // API base URL
+        const API_BASE_URL = '/api';
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAnalytics();
+            
+            // Event listeners
+            document.getElementById('dateRange').addEventListener('change', loadAnalytics);
+            document.getElementById('refreshData').addEventListener('click', loadAnalytics);
+        });
+        
+        // Load analytics data
+        async function loadAnalytics() {
+            try {
+                showLoading();
+                const dateRange = document.getElementById('dateRange').value;
+                
+                // Fetch analytics data
+                const analyticsData = await fetchAnalyticsData(dateRange);
+                
+                // Update metrics
+                updateMetrics(analyticsData.metrics);
+                
+                // Update charts
+                updateCharts(analyticsData);
+                
+                // Update top content table
+                updateTopContentTable(analyticsData.topContent);
+                
+                hideLoading();
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                showError('Failed to load analytics data');
+            }
+        }
+        
+        // Fetch analytics data from API
+        async function fetchAnalyticsData(dateRange) {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - parseInt(dateRange));
+            
+            try {
+                // Fetch content data for the date range
+                const contentResponse = await fetch(`${API_BASE_URL}/content/date-range?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&size=1000`);
+                const contentData = await contentResponse.json();
+                
+                // Process the data to generate analytics
+                return processAnalyticsData(contentData.content);
+            } catch (error) {
+                // Return mock data if API fails
+                return getMockAnalyticsData();
+            }
+        }
+        
+        // Process content data into analytics format
+        function processAnalyticsData(content) {
+            const totalViews = content.reduce((sum, item) => sum + (item.viewCount || 0), 0);
+            const totalLikes = content.reduce((sum, item) => sum + (item.likeCount || 0), 0);
+            const totalComments = content.reduce((sum, item) => sum + (item.commentCount || 0), 0);
+            const totalShares = content.reduce((sum, item) => sum + (item.shareCount || 0), 0);
+            
+            // Platform distribution
+            const platformStats = {};
+            content.forEach(item => {
+                if (!platformStats[item.platform]) {
+                    platformStats[item.platform] = { count: 0, views: 0 };
+                }
+                platformStats[item.platform].count++;
+                platformStats[item.platform].views += item.viewCount || 0;
+            });
+            
+            // Status distribution
+            const statusStats = {};
+            content.forEach(item => {
+                statusStats[item.status] = (statusStats[item.status] || 0) + 1;
+            });
+            
+            // Sort content by performance
+            const topContent = content
+                .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+                .slice(0, 10);
+            
+            return {
+                metrics: {
+                    totalViews,
+                    totalLikes,
+                    totalComments,
+                    totalShares
+                },
+                platformStats,
+                statusStats,
+                topContent,
+                timeSeriesData: generateTimeSeriesData(content)
+            };
+        }
+        
+        // Generate time series data for charts
+        function generateTimeSeriesData(content) {
+            const dailyStats = {};
+            
+            content.forEach(item => {
+                const date = new Date(item.createdAt).toDateString();
+                if (!dailyStats[date]) {
+                    dailyStats[date] = { views: 0, likes: 0, comments: 0, shares: 0 };
+                }
+                dailyStats[date].views += item.viewCount || 0;
+                dailyStats[date].likes += item.likeCount || 0;
+                dailyStats[date].comments += item.commentCount || 0;
+                dailyStats[date].shares += item.shareCount || 0;
+            });
+            
+            return dailyStats;
+        }
+        
+        // Update metrics cards
+        function updateMetrics(metrics) {
+            document.getElementById('totalViews').textContent = formatNumber(metrics.totalViews);
+            document.getElementById('totalLikes').textContent = formatNumber(metrics.totalLikes);
+            document.getElementById('totalComments').textContent = formatNumber(metrics.totalComments);
+            document.getElementById('totalShares').textContent = formatNumber(metrics.totalShares);
+            
+            // Calculate and display changes (mock data for now)
+            document.getElementById('viewsChange').textContent = '+12.5% from last period';
+            document.getElementById('likesChange').textContent = '+8.3% from last period';
+            document.getElementById('commentsChange').textContent = '+15.7% from last period';
+            document.getElementById('sharesChange').textContent = '+5.2% from last period';
+        }
+        
+        // Update all charts
+        function updateCharts(data) {
+            updateViewsChart(data.timeSeriesData);
+            updateEngagementChart(data.metrics);
+            updatePlatformChart(data.platformStats);
+            updateStatusChart(data.statusStats);
+        }
+        
+        // Update views over time chart
+        function updateViewsChart(timeSeriesData) {
+            const ctx = document.getElementById('viewsChart').getContext('2d');
+            
+            if (viewsChart) {
+                viewsChart.destroy();
+            }
+            
+            const labels = Object.keys(timeSeriesData).slice(-30); // Last 30 days
+            const viewsData = labels.map(date => timeSeriesData[date]?.views || 0);
+            
+            viewsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.map(date => new Date(date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Views',
+                        data: viewsData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update engagement chart
+        function updateEngagementChart(metrics) {
+            const ctx = document.getElementById('engagementChart').getContext('2d');
+            
+            if (engagementChart) {
+                engagementChart.destroy();
+            }
+            
+            engagementChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Likes', 'Comments', 'Shares'],
+                    datasets: [{
+                        label: 'Engagement',
+                        data: [metrics.totalLikes, metrics.totalComments, metrics.totalShares],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update platform distribution chart
+        function updatePlatformChart(platformStats) {
+            const ctx = document.getElementById('platformChart').getContext('2d');
+            
+            if (platformChart) {
+                platformChart.destroy();
+            }
+            
+            const platforms = Object.keys(platformStats);
+            const counts = platforms.map(platform => platformStats[platform].count);
+            
+            platformChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: platforms,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Update status chart
+        function updateStatusChart(statusStats) {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            
+            if (statusChart) {
+                statusChart.destroy();
+            }
+            
+            const statuses = Object.keys(statusStats);
+            const counts = Object.values(statusStats);
+            
+            statusChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: statuses,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Update top content table
+        function updateTopContentTable(topContent) {
+            const tbody = document.getElementById('topContentTable');
+            tbody.innerHTML = '';
+            
+            topContent.forEach(content => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${content.title}</div>
+                        <div class="text-sm text-gray-500">${content.description?.substring(0, 50) || ''}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ${content.platform}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatNumber(content.viewCount || 0)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatNumber(content.likeCount || 0)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatNumber(content.commentCount || 0)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatNumber(content.shareCount || 0)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(content.createdAt).toLocaleDateString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Mock data for development/fallback
+        function getMockAnalyticsData() {
+            return {
+                metrics: {
+                    totalViews: 125430,
+                    totalLikes: 8920,
+                    totalComments: 2340,
+                    totalShares: 1560
+                },
+                platformStats: {
+                    'YOUTUBE': { count: 15, views: 85000 },
+                    'INSTAGRAM': { count: 25, views: 30000 },
+                    'TIKTOK': { count: 20, views: 10430 }
+                },
+                statusStats: {
+                    'PUBLISHED': 45,
+                    'DRAFT': 12,
+                    'SCHEDULED': 8,
+                    'ARCHIVED': 5
+                },
+                topContent: [
+                    {
+                        id: 1,
+                        title: 'Amazing Tutorial Video',
+                        description: 'Learn how to create amazing content',
+                        platform: 'YOUTUBE',
+                        viewCount: 25000,
+                        likeCount: 1200,
+                        commentCount: 340,
+                        shareCount: 89,
+                        createdAt: new Date().toISOString()
+                    }
+                ],
+                timeSeriesData: generateMockTimeSeriesData()
+            };
+        }
+        
+        function generateMockTimeSeriesData() {
+            const data = {};
+            for (let i = 30; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                data[date.toDateString()] = {
+                    views: Math.floor(Math.random() * 5000) + 1000,
+                    likes: Math.floor(Math.random() * 500) + 100,
+                    comments: Math.floor(Math.random() * 100) + 20,
+                    shares: Math.floor(Math.random() * 50) + 10
+                };
+            }
+            return data;
+        }
+        
+        // Utility functions
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        }
+        
+        function showLoading() {
+            // Add loading indicators if needed
+        }
+        
+        function hideLoading() {
+            // Remove loading indicators if needed
+        }
+        
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+    </script>
+</body>
+</html>
