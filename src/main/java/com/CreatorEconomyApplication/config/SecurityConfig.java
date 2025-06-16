@@ -16,7 +16,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // Allow public access to static resources and main pages
                 .requestMatchers("/", "/dashboard", "/dashboard.html", "/analytics", "/analytics.html", 
-                               "/login", "/login.html", "/register", "/register.html",
+                               "/login", "/login.html", "/register", "/register.html","/actuator/**",
                                "/css/**", "/js/**", "/images/**", "/static/**").permitAll()
                 // Allow public access to API endpoints for now (you can secure these later)
                 .requestMatchers("/api/**").permitAll()

@@ -1,6 +1,7 @@
 package com.CreatorEconomyApplication.repository;
 
 import com.CreatorEconomyApplication.model.entity.User;
+import com.CreatorEconomyApplication.model.enums.RoleName;
 import com.CreatorEconomyApplication.model.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,7 +36,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
     
     // Find users by role
-    List<User> findByRole(String role);
+    List<User> findByRole(RoleName role);
     
     // Search users by username or email containing keyword
     @Query("SELECT u FROM User u WHERE u.username LIKE %:keyword% OR u.email LIKE %:keyword%")
@@ -57,4 +58,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.createdAt >= :startDate AND u.createdAt <= :endDate")
     List<User> findByDateRange(@Param("startDate") LocalDateTime startDate, 
                               @Param("endDate") LocalDateTime endDate);
+
+    Optional<User> findByUsernameOrEmail(String username, String email);
+    
+    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = :username")
+    Optional<User> findByUsernameWithRoles(@Param("username") String username);
 }

@@ -1,11 +1,15 @@
 package com.CreatorEconomyApplication.controller;
 
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Web Controller for serving static HTML pages
  */
+@Slf4j
 @Controller
 public class WebController {
     
@@ -22,6 +26,7 @@ public class WebController {
      */
     @GetMapping("/analytics")
     public String analytics() {
+        log.error("Error fetching platform stats", 1);
         return "redirect:/analytics.html";
     }
   
