@@ -9,8 +9,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -19,27 +17,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/analytics")
+/**
+ * REST API Controller for Analytics endpoints
+ */
+@RestController
+@RequestMapping("/api/analytics")
 @RequiredArgsConstructor
 @Slf4j
-public class AnalyticsController {
+@CrossOrigin(origins = "*")
+public class AnalyticsApiController {
     
     private final ContentService contentService;
     
     /**
-     * Serve the analytics dashboard page
-     */
-    @GetMapping
-    public String analyticsPage(Model model) {
-        return "analytics";
-    }
-    
-    /**
      * Get analytics data for a specific user and date range
      */
-    @GetMapping("/api/data")
-    @ResponseBody
+    @GetMapping("/data")
     public ResponseEntity<Map<String, Object>> getAnalyticsData(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "30") int days) {
@@ -74,8 +67,7 @@ public class AnalyticsController {
     /**
      * Get top performing content
      */
-    @GetMapping("/api/top-content")
-    @ResponseBody
+    @GetMapping("/top-content")
     public ResponseEntity<List<ContentResponse>> getTopContent(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "10") int limit) {
@@ -101,8 +93,7 @@ public class AnalyticsController {
     /**
      * Get platform distribution analytics
      */
-    @GetMapping("/api/platform-stats")
-    @ResponseBody
+    @GetMapping("/platform-stats")
     public ResponseEntity<Map<String, Object>> getPlatformStats(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "30") int days) {
@@ -133,8 +124,7 @@ public class AnalyticsController {
     /**
      * Get engagement metrics over time
      */
-    @GetMapping("/api/engagement-timeline")
-    @ResponseBody
+    @GetMapping("/engagement-timeline")
     public ResponseEntity<Map<String, Object>> getEngagementTimeline(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "30") int days) {
@@ -165,8 +155,7 @@ public class AnalyticsController {
     /**
      * Get content status distribution
      */
-    @GetMapping("/api/status-distribution")
-    @ResponseBody
+    @GetMapping("/status-distribution")
     public ResponseEntity<Map<String, Integer>> getStatusDistribution(
             @RequestParam(required = false) Long userId) {
         
@@ -200,25 +189,28 @@ public class AnalyticsController {
     private Map<String, Object> calculateAnalytics(List<ContentResponse> content, int days) {
         Map<String, Object> analytics = new HashMap<>();
         
-        // Calculate total metrics
-        long totalViews = content.stream().mapToLong(c -> c.getViewCount() != null ? c.getViewCount() : 0).sum();
-        long totalLikes = content.stream().mapToLong(c -> c.getLikeCount() != null ? c.getLikeCount() : 0).sum();
-        long totalComments = content.stream().mapToLong(c -> c.getCommentCount() != null ? c.getCommentCount() : 0).sum();
-        long totalShares = content.stream().mapToLong(c -> c.getShareCount() != null ? c.getShareCount() : 0).sum();
+        // Basic metrics
+        analytics.put("totalContent", content.size());
+        analytics.put("totalViews", content.stream().mapToLong(c -> c.getViewCount()).sum());
+        analytics.put("totalLikes", content.stream().mapToLong(c -> c.getLikeCount()).sum());
+        analytics.put("totalComments", content.stream().mapToLong(c -> c.getCommentCount()).sum());
+        analytics.put("totalShares", content.stream().mapToLong(c -> c.getShareCount()).sum());
         
-        Map<String, Object> metrics = new HashMap<>();
-        metrics.put("totalViews", totalViews);
-        metrics.put("totalLikes", totalLikes);
-        metrics.put("totalComments", totalComments);
-        metrics.put("totalShares", totalShares);
-        metrics.put("totalContent", content.size());
-        metrics.put("averageViews", content.isEmpty() ? 0 : totalViews / content.size());
-        metrics.put("engagementRate", totalViews > 0 ? ((double)(totalLikes + totalComments + totalShares) / totalViews) * 100 : 0);
+        // Average engagement
+        if (!content.isEmpty()) {
+            analytics.put("avgViews", content.stream().mapToLong(c -> c.getViewCount()).average().orElse(0));
+            analytics.put("avgLikes", content.stream().mapToLong(c -> c.getLikeCount()).average().orElse(0));
+            analytics.put("avgComments", content.stream().mapToLong(c -> c.getCommentCount()).average().orElse(0));
+            analytics.put("avgShares", content.stream().mapToLong(c -> c.getShareCount()).average().orElse(0));
+        }
         
-        analytics.put("metrics", metrics);
-        analytics.put("platformStats", calculatePlatformStats(content));
-        analytics.put("statusStats", calculateStatusStats(content));
-        analytics.put("timelineData", calculateDailyStats(content, days));
+        // Status distribution
+        analytics.put("statusDistribution", calculateStatusStats(content));
+        
+        // Daily stats
+        analytics.put("dailyStats", calculateDailyStats(content, days));
+        
+        // Top performing content
         analytics.put("topContent", getTopPerformingContent(content, 10));
         
         return analytics;
@@ -230,19 +222,32 @@ public class AnalyticsController {
     private Map<String, Object> calculatePlatformStats(List<ContentResponse> content) {
         Map<String, Object> platformStats = new HashMap<>();
         
-        Map<String, List<ContentResponse>> platformGroups = content.stream()
-            .collect(Collectors.groupingBy(c -> c.getTargetPlatforms().toString()));
+        // Platform distribution
+        Map<String, Long> platformDistribution = content.stream()
+            .flatMap(c -> c.getTargetPlatforms().stream())
+            .collect(Collectors.groupingBy(
+                platform -> platform.toString(),
+                Collectors.counting()
+            ));
         
-        platformGroups.forEach((platform, contentList) -> {
-            Map<String, Object> stats = new HashMap<>();
-            stats.put("count", contentList.size());
-            stats.put("totalViews", contentList.stream().mapToLong(c -> c.getViewCount() != null ? c.getViewCount() : 0).sum());
-            stats.put("totalLikes", contentList.stream().mapToLong(c -> c.getLikeCount() != null ? c.getLikeCount() : 0).sum());
-            stats.put("averageViews", contentList.isEmpty() ? 0 : 
-                contentList.stream().mapToLong(c -> c.getViewCount() != null ? c.getViewCount() : 0).sum() / contentList.size());
-            
-            platformStats.put(platform, stats);
+        platformStats.put("platformDistribution", platformDistribution);
+        
+        // Engagement by platform
+        Map<String, Map<String, Long>> engagementByPlatform = new HashMap<>();
+        content.forEach(c -> {
+            c.getTargetPlatforms().forEach(platform -> {
+                String platformName = platform.toString();
+                engagementByPlatform.computeIfAbsent(platformName, k -> new HashMap<>());
+                
+                Map<String, Long> stats = engagementByPlatform.get(platformName);
+                stats.put("views", stats.getOrDefault("views", 0L) + c.getViewCount());
+                stats.put("likes", stats.getOrDefault("likes", 0L) + c.getLikeCount());
+                stats.put("comments", stats.getOrDefault("comments", 0L) + c.getCommentCount());
+                stats.put("shares", stats.getOrDefault("shares", 0L) + c.getShareCount());
+            });
         });
+        
+        platformStats.put("engagementByPlatform", engagementByPlatform);
         
         return platformStats;
     }
@@ -259,38 +264,33 @@ public class AnalyticsController {
     }
     
     /**
-     * Calculate daily statistics for timeline
+     * Calculate daily statistics
      */
     private Map<String, Object> calculateDailyStats(List<ContentResponse> content, int days) {
-        Map<String, Map<String, Long>> dailyStats = new HashMap<>();
+        Map<String, Object> dailyStats = new HashMap<>();
         
-        // Initialize all days with zero values
-        LocalDateTime currentDate = LocalDateTime.now().minusDays(days);
-        for (int i = 0; i <= days; i++) {
-            String dateKey = currentDate.plusDays(i).toLocalDate().toString();
-            Map<String, Long> dayStats = new HashMap<>();
-            dayStats.put("views", 0L);
-            dayStats.put("likes", 0L);
-            dayStats.put("comments", 0L);
-            dayStats.put("shares", 0L);
-            dayStats.put("posts", 0L);
-            dailyStats.put(dateKey, dayStats);
-        }
+        // Group content by date
+        Map<String, List<ContentResponse>> contentByDate = content.stream()
+            .collect(Collectors.groupingBy(
+                c -> c.getCreatedAt().toLocalDate().toString()
+            ));
         
-        // Aggregate actual data
-        content.forEach(contentItem -> {
-            String dateKey = contentItem.getCreatedAt().toLocalDate().toString();
-            if (dailyStats.containsKey(dateKey)) {
-                Map<String, Long> dayStats = dailyStats.get(dateKey);
-                dayStats.put("views", dayStats.get("views") + (contentItem.getViewCount() != null ? contentItem.getViewCount() : 0));
-                dayStats.put("likes", dayStats.get("likes") + (contentItem.getLikeCount() != null ? contentItem.getLikeCount() : 0));
-                dayStats.put("comments", dayStats.get("comments") + (contentItem.getCommentCount() != null ? contentItem.getCommentCount() : 0));
-                dayStats.put("shares", dayStats.get("shares") + (contentItem.getShareCount() != null ? contentItem.getShareCount() : 0));
-                dayStats.put("posts", dayStats.get("posts") + 1);
-            }
+        // Calculate daily metrics
+        Map<String, Map<String, Object>> dailyMetrics = new HashMap<>();
+        contentByDate.forEach((date, dayContent) -> {
+            Map<String, Object> metrics = new HashMap<>();
+            metrics.put("contentCount", dayContent.size());
+            metrics.put("totalViews", dayContent.stream().mapToLong(c -> c.getViewCount()).sum());
+            metrics.put("totalLikes", dayContent.stream().mapToLong(c -> c.getLikeCount()).sum());
+            metrics.put("totalComments", dayContent.stream().mapToLong(c -> c.getCommentCount()).sum());
+            metrics.put("totalShares", dayContent.stream().mapToLong(c -> c.getShareCount()).sum());
+            
+            dailyMetrics.put(date, metrics);
         });
         
-        return Map.of("daily", dailyStats);
+        dailyStats.put("dailyMetrics", dailyMetrics);
+        
+        return dailyStats;
     }
     
     /**
@@ -298,17 +298,7 @@ public class AnalyticsController {
      */
     private List<ContentResponse> getTopPerformingContent(List<ContentResponse> content, int limit) {
         return content.stream()
-            .sorted((a, b) -> {
-                long aScore = (a.getViewCount() != null ? a.getViewCount() : 0) * 3 + 
-                             (a.getLikeCount() != null ? a.getLikeCount() : 0) * 2 +
-                             (a.getCommentCount() != null ? a.getCommentCount() : 0) * 5 +
-                             (a.getShareCount() != null ? a.getShareCount() : 0) * 4;
-                long bScore = (b.getViewCount() != null ? b.getViewCount() : 0) * 3 + 
-                             (b.getLikeCount() != null ? b.getLikeCount() : 0) * 2 +
-                             (b.getCommentCount() != null ? b.getCommentCount() : 0) * 5 +
-                             (b.getShareCount() != null ? b.getShareCount() : 0) * 4;
-                return Long.compare(bScore, aScore);
-            })
+            .sorted((a, b) -> Long.compare(b.getViewCount(), a.getViewCount()))
             .limit(limit)
             .collect(Collectors.toList());
     }
@@ -319,54 +309,56 @@ public class AnalyticsController {
     private Map<String, Object> calculateEngagementTimeline(List<ContentResponse> content) {
         Map<String, Object> timeline = new HashMap<>();
         
-        // Group by date and calculate engagement metrics
-        Map<String, List<ContentResponse>> dailyContent = content.stream()
-            .collect(Collectors.groupingBy(c -> c.getCreatedAt().toLocalDate().toString()));
+        // Sort content by creation date
+        List<ContentResponse> sortedContent = content.stream()
+            .sorted((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
+            .collect(Collectors.toList());
         
-        Map<String, Double> dailyEngagementRate = new HashMap<>();
-        Map<String, Long> dailyTotalEngagement = new HashMap<>();
+        // Calculate cumulative metrics
+        long cumulativeViews = 0;
+        long cumulativeLikes = 0;
+        long cumulativeComments = 0;
+        long cumulativeShares = 0;
         
-        dailyContent.forEach((date, contentList) -> {
-            long totalViews = contentList.stream().mapToLong(c -> c.getViewCount() != null ? c.getViewCount() : 0).sum();
-            long totalEngagement = contentList.stream().mapToLong(c -> 
-                (c.getLikeCount() != null ? c.getLikeCount() : 0) +
-                (c.getCommentCount() != null ? c.getCommentCount() : 0) +
-                (c.getShareCount() != null ? c.getShareCount() : 0)
-            ).sum();
+        Map<String, Map<String, Long>> timelineData = new HashMap<>();
+        
+        for (ContentResponse c : sortedContent) {
+            cumulativeViews += c.getViewCount();
+            cumulativeLikes += c.getLikeCount();
+            cumulativeComments += c.getCommentCount();
+            cumulativeShares += c.getShareCount();
             
-            double engagementRate = totalViews > 0 ? ((double) totalEngagement / totalViews) * 100 : 0;
+            Map<String, Long> point = new HashMap<>();
+            point.put("views", cumulativeViews);
+            point.put("likes", cumulativeLikes);
+            point.put("comments", cumulativeComments);
+            point.put("shares", cumulativeShares);
             
-            dailyEngagementRate.put(date, engagementRate);
-            dailyTotalEngagement.put(date, totalEngagement);
-        });
+            timelineData.put(c.getCreatedAt().toString(), point);
+        }
         
-        timeline.put("engagementRate", dailyEngagementRate);
-        timeline.put("totalEngagement", dailyTotalEngagement);
+        timeline.put("timeline", timelineData);
         
         return timeline;
     }
     
     /**
-     * Get default analytics data (fallback)
+     * Get default analytics when no data is available
      */
     private Map<String, Object> getDefaultAnalytics() {
-        Map<String, Object> analytics = new HashMap<>();
-        
-        Map<String, Object> metrics = new HashMap<>();
-        metrics.put("totalViews", 0);
-        metrics.put("totalLikes", 0);
-        metrics.put("totalComments", 0);
-        metrics.put("totalShares", 0);
-        metrics.put("totalContent", 0);
-        metrics.put("averageViews", 0);
-        metrics.put("engagementRate", 0.0);
-        
-        analytics.put("metrics", metrics);
-        analytics.put("platformStats", Map.of());
-        analytics.put("statusStats", Map.of());
-        analytics.put("timelineData", Map.of("daily", Map.of()));
-        analytics.put("topContent", List.of());
-        
-        return analytics;
+        Map<String, Object> defaultAnalytics = new HashMap<>();
+        defaultAnalytics.put("totalContent", 0);
+        defaultAnalytics.put("totalViews", 0);
+        defaultAnalytics.put("totalLikes", 0);
+        defaultAnalytics.put("totalComments", 0);
+        defaultAnalytics.put("totalShares", 0);
+        defaultAnalytics.put("avgViews", 0.0);
+        defaultAnalytics.put("avgLikes", 0.0);
+        defaultAnalytics.put("avgComments", 0.0);
+        defaultAnalytics.put("avgShares", 0.0);
+        defaultAnalytics.put("statusDistribution", Map.of());
+        defaultAnalytics.put("dailyStats", Map.of());
+        defaultAnalytics.put("topContent", List.of());
+        return defaultAnalytics;
     }
-}
+} 
